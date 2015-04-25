@@ -1,109 +1,146 @@
 window.onload = function() {
-	function handleFileSelect(evt) {
+	var usedColors = [ [255,255,255], [0,0,0] ];
+
+	function handleFileSelect(callback, evt) {
 		var files = evt.target.files;
 		var f = files[0];
-		// for (var i = 0, f; f = files[i]; i++) {
-			if (!f.type.match('image.*')) {
-				return;
-				// continue;
-			}
-			var reader = new FileReader();
-			// Closure to capture the file information.
-			reader.onload = (function(theFile) {
-				return function(e) {
-				  // Render thumbnail.
-					var span = document.createElement('span');
-					var imageId = 'original';
-					var image;
+		if (!f.type.match('image.*')) {
+			return;
+		}
 
-					span.innerHTML = [
-						'<img id="', imageId, '" src="', e.target.result,
-						'" title="', escape(theFile.name), 
-						'"/>'
-					].join('');
-					
-					document.getElementById('container').insertBefore(span, null);
+		var reader = new FileReader();
+		
+		reader.onload = (function(theFile) {
+			return function(e) {
+				var span = document.createElement('span');
+				var imageId = 'original';
+				var image;
 
-					image = document.getElementById(imageId);
+				span.innerHTML = [
+					'<img id="', imageId, '" src="', e.target.result,
+					'" title="', escape(theFile.name), 
+					'"/>'
+				].join('');
+				
+				document.getElementById('container').insertBefore(span, null);
+				image = document.getElementById(imageId);
+				
+				callback(image, imageId);
+			};
+		})(f);
 
-					drawing(image, imageId);
-					// drawImage(image);
-				};
-			})(f);
-
-			// Read in the image file as a data URL.
-			reader.readAsDataURL(f);
-		// }
+		reader.readAsDataURL(f);
 	}
 
-	document.getElementById('files').addEventListener('change', handleFileSelect, false);
+	document.getElementById('files')
+		.addEventListener('change', handleFileSelect.bind(this, drawingImage), false);
 
-	function drawing(element, id) {
+	function drawingImage(element, imageId) {
 		var canvas = document.getElementById('canvas');
       	var ctx = canvas.getContext('2d');
-		// var img = document.getElementById('img');
 		var img = element;
-		var demoContainer = document.querySelector('#container');
-		tracking.ColorTracker.registerColor('black', function(r,g,b){return r<=1&&g<=1&&b<=1 });
-		var tracker = new tracking.ColorTracker('black');
+		var tracker;
+		
+		
+        tracking.ColorTracker.registerColor('black', function(r, g, b){
+			return r <= 100 && g <= 100 && b <= 100;
+		});
+		tracker = new tracking.ColorTracker('black');
         
-        ctx.drawImage(img, 0, 0);
+        ctx.drawImage(img, 0, 0/*, 900, 450*/);
+        // var width = 900;
+        // var height = 450;
+        // var imageData = ctx.getImageData(0, 0, width, height);
+        // var gray = tracking.Image.grayscale(imageData.data, width, height);
+        // var corners = tracking.Fast.findCorners(gray, width, height);
+        // debugger;
 		
 		tracker.on('track', function(event) {
-	     	var widthImage = 900;
-	      	var heightImage = 450;
-
-	      	var x = 0;
-	      	var y = 0;
+			var lowestFramePoint = 0;
 			event.data.forEach(function(rect) {
+				var x = rect.x;
+				var y = rect.y;
+				// if (y > lowestFramePoint) {
+				// 	lowestFramePoint = y;
+				// }
 				var width = rect.width;
 				var height = rect.height;
-
+				// debugger;
+				changeFrameColor(ctx, element, x, y, width, height);
+				
 				x += rect.width;
 				y += rect.height;
 
-				changeFrameColor(element, x, y, width, height);
-				// tracking.Fast.THRESHOLD = 10;
-				// ctx.changeFrameColor(img, 0, 0, widthImage, heightImage);
-        		// var imageData = ctx.getImageData(0, 0, width, height);
-        		// var gray = tracking.Image.grayscale(imageData.data, width, height);
-        		// var corners = tracking.Fast.findCorners(gray, width, height);
-        // 		for (var i = 0; i < corners.length; i += 2) {
-        // // debugger;
-		      //    	ctx.fillStyle = '#f00';
-		      //   	ctx.fillRect(corners[i], corners[i + 1], 3, 3);
-		      //   }
-				// window.plot(rect.x, rect.y, rect.width, rect.height, rect.color);
 			});
-			// debugger;
 		});
-		tracking.track('#'+id, tracker);
+		tracking.track('#' + imageId, tracker);
 	}
     
-    function changeFrameColor(imageObj, x, y, width, height) {
-        var canvas = document.getElementById('canvas');
-        var context = canvas.getContext('2d');
-        var startAt_x = x - width;
-        var startAt_y = /*y - height*/0;
-        var imageData = context.getImageData(x, y, width, height);
-        
-        var randomColor = +(Math.random()*255-Math.random()*255/10).toFixed();
-        
-  //       var gray = tracking.Image.grayscale(imageData.data, width, height);
-		// var corners = tracking.Fast.findCorners(gray, width, height);
-		debugger;
+    function changeFrameColor(ctx, imageObj, x, y, width, height) {
+        var imageData = ctx.getImageData(x, y, width, height);
         var data = imageData.data;
-        
-        for(var i = 0; i < data.length; i += 4) {
-          // red
-          data[i] = randomColor - data[i];
-          // green
-          data[i + 1] = randomColor - data[i + 1];
-          // blue
-          data[i + 2] = randomColor - data[i + 2];
-        }
 
-        // overwrite original image
-        context.putImageData(imageData, x, y);
-      }
+        function isSameColors(color, to) {
+        	return color.every(function(item, num) {
+        		return ( to[num] > (item - 60) )
+        			&& ( to[num] < (item + 60) );
+        	})
+        }
+        function isUsedColor(color) {
+        	return usedColors.some(function(item, num) {
+        		return isSameColors(color, item);
+        	});
+        }
+        function getRandomColor(callback) {
+        	randomColorGen(function(color) {
+        		if (color) {
+        			callback(color);
+        			return;
+        		}
+        	});
+        }
+        function isNotBlack(color) {
+        	return color.every(function(item) {
+        		return item > 60;
+        	});
+        }
+		function randomColorGen(done) {
+			var shadows = [255, 255, 255];
+			// var randomDef = Math.round(Math.random()*255);
+			// var randomShadow = Math.round(Math.random()*2);
+			
+			// shadows[randomShadow] = randomDef;
+			shadows = shadows.map(function(i) {
+				return Math.abs(255-Math.round(Math.random()*255));
+			});
+			
+			if (isUsedColor(shadows) || isNotBlack(shadows)) {
+				randomColorGen(done);
+				return;
+			}
+			usedColors.push(shadows);
+			done(shadows);
+		}
+        
+        
+		getRandomColor(function(newColor) {
+			function isBlack() {
+				return color.every(function(item) {
+					return item === 0;
+				});
+			}
+	        for(var i = 0; i < data.length; i += 4) {
+	        	var color = [data[i], data[i + 1], data[i + 2]];
+
+	        	if( isBlack() ) {
+					newColor.forEach(function(item, num) {
+						data[i + num] = item;
+					})
+	        	}
+	        }
+
+        	console.log(usedColors);
+        	ctx.putImageData(imageData, x, y);
+		});
+    }
 };
