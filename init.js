@@ -47,32 +47,32 @@ window.onload = function() {
 		});
 		tracker = new tracking.ColorTracker('black');
         
-        ctx.drawImage(img, 0, 0/*, 900, 450*/);
-        // var width = 900;
-        // var height = 450;
-        // var imageData = ctx.getImageData(0, 0, width, height);
-        // var gray = tracking.Image.grayscale(imageData.data, width, height);
-        // var corners = tracking.Fast.findCorners(gray, width, height);
-        // debugger;
+        ctx.drawImage(img, 0, 0);
+        var width = 900;
+        var height = 450;
 		
 		tracker.on('track', function(event) {
-			var lowestFramePoint = 0;
+			var bottomFrame_y = 0;
+			var bottomFrameHeight = height - bottomFrame_y;
+
 			event.data.forEach(function(rect) {
 				var x = rect.x;
 				var y = rect.y;
-				// if (y > lowestFramePoint) {
-				// 	lowestFramePoint = y;
-				// }
+				if (y > lowestFramePoint) {
+					lowestFramePoint = y;
+				}
 				var width = rect.width;
 				var height = rect.height;
-				// debugger;
 				changeFrameColor(ctx, element, x, y, width, height);
 				
 				x += rect.width;
 				y += rect.height;
 
 			});
+			// bottom frame
+			changeFrameColor(ctx, element, 0, lowestFramePoint, width, bottomFrameHeight);
 		});
+		
 		tracking.track('#' + imageId, tracker);
 	}
     
@@ -99,22 +99,19 @@ window.onload = function() {
         		}
         	});
         }
-        function isNotBlack(color) {
+        function isNotBlacky(color) {
         	return color.every(function(item) {
         		return item > 60;
         	});
         }
 		function randomColorGen(done) {
 			var shadows = [255, 255, 255];
-			// var randomDef = Math.round(Math.random()*255);
-			// var randomShadow = Math.round(Math.random()*2);
-			
-			// shadows[randomShadow] = randomDef;
+
 			shadows = shadows.map(function(i) {
 				return Math.abs(255-Math.round(Math.random()*255));
 			});
 			
-			if (isUsedColor(shadows) || isNotBlack(shadows)) {
+			if (isUsedColor(shadows) || isNotBlacky(shadows)) {
 				randomColorGen(done);
 				return;
 			}
@@ -122,11 +119,10 @@ window.onload = function() {
 			done(shadows);
 		}
         
-        
 		getRandomColor(function(newColor) {
 			function isBlack() {
 				return color.every(function(item) {
-					return item === 0;
+					return item < 10;
 				});
 			}
 	        for(var i = 0; i < data.length; i += 4) {
@@ -139,7 +135,6 @@ window.onload = function() {
 	        	}
 	        }
 
-        	console.log(usedColors);
         	ctx.putImageData(imageData, x, y);
 		});
     }
