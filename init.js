@@ -1,141 +1,212 @@
 window.onload = function() {
-	var usedColors = [ [255,255,255], [0,0,0] ];
-
-	function handleFileSelect(callback, evt) {
-		var files = evt.target.files;
-		var f = files[0];
-		if (!f.type.match('image.*')) {
-			return;
+	Number.prototype.inRange = function() {
+		var args = arguments;
+		var min = args[0];
+		var max = args[1];
+		if (arguments.length === 1) {
+			return this <= args[0];
 		}
 
-		var reader = new FileReader();
-		
-		reader.onload = (function(theFile) {
-			return function(e) {
-				var span = document.createElement('span');
-				var imageId = 'original';
-				var image;
+		return this >= min && this <= max;
+	};
 
-				span.innerHTML = [
-					'<img id="', imageId, '" src="', e.target.result,
-					'" title="', escape(theFile.name), 
-					'"/>'
-				].join('');
-				
-				document.getElementById('container').insertBefore(span, null);
-				image = document.getElementById(imageId);
-				
-				callback(image, imageId);
+	(function($, tracking){
+		function Coloring() {
+			this.options = {
+				usedColors: [],
+				similarColorTolerance: null,
+				blackColorTolerance: null,
+				width: null,
+				height: null,
+				frameWidthTolerance: null,
+				frameHeightTolerance: null
 			};
-		})(f);
-
-		reader.readAsDataURL(f);
-	}
-
-	document.getElementById('files')
-		.addEventListener('change', handleFileSelect.bind(this, drawingImage), false);
-
-	function drawingImage(element, imageId) {
-		var canvas = document.getElementById('canvas');
-      	var ctx = canvas.getContext('2d');
-		var img = element;
-		var tracker;
-		
-		
-        tracking.ColorTracker.registerColor('black', function(r, g, b){
-			return r <= 100 && g <= 100 && b <= 100;
-		});
-		tracker = new tracking.ColorTracker('black');
-        
-        ctx.drawImage(img, 0, 0);
-        var width = 900;
-        var height = 450;
-		
-		tracker.on('track', function(event) {
-			var bottomFrame_y = 0;
-			var bottomFrameHeight = height - bottomFrame_y;
-
-			event.data.forEach(function(rect) {
-				var x = rect.x;
-				var y = rect.y;
-				if (y > lowestFramePoint) {
-					lowestFramePoint = y;
-				}
-				var width = rect.width;
-				var height = rect.height;
-				changeFrameColor(ctx, element, x, y, width, height);
+			this.init = function(canvas, image, params) {
+				this.options = $.extend(this.options, params);
+				this.image = image;
+				this.canvas = canvas;
+				this.ctxCanvas = this.canvas.getContext('2d');
+				this.options.height =  this.options.height || image.offsetHeight;
 				
-				x += rect.width;
-				y += rect.height;
+				this.drawingImage();
+			};
+			this.drawingImage = function() {
+				var canvas = this.canvas;
+		      	var ctx = this.ctxCanvas;
+				var img = this.image;
+				var imageId = img.id;
+				var tracker;
+				var width = this.options.width;
+				var height = this.options.height;
+				
+				ctx.canvas.width  = width;
+		 		ctx.canvas.height = height;
 
+		        tracking.ColorTracker.registerColor('black', function(r, g, b){
+					var blackClrTlrnc = this.options.blackColorTolerance;
+					var args = Array.prototype.slice.call(arguments);
+					var specArgs = args.slice(0, 2);
+
+					return specArgs.every(function(item) {
+						return item.inRange(blackClrTlrnc);
+					});
+				}.bind(this));
+				tracker = new tracking.ColorTracker('black');
+		        
+		        ctx.drawImage(img, 0, 0, width, height);
+				
+				tracker.on('track', function(event) {
+					var bottomFrame_y = 0;
+					var bottomFrameHeight = height - bottomFrame_y;
+					var frameWidthTlrnc = this.options.frameWidthTolerance;
+					var frameHeightTlrnc = this.options.frameHeightTolerance;
+
+					event.data.forEach(function(rect) {
+						var x = rect.x;
+						var y = rect.y;
+						if (y > bottomFrame_y) {
+							bottomFrame_y = y;
+						}
+						var width = rect.width + frameWidthTlrnc;
+						var height = rect.height + frameHeightTlrnc;
+						
+						this.changeFrameColor(x, y, width, height);
+						
+						x += rect.width;
+						y += rect.height;
+					}.bind(this));
+					// bottom frame
+					this.changeFrameColor(0, bottomFrame_y, width, bottomFrameHeight);
+				}.bind(this));
+				
+				tracking.track('#' + imageId, tracker);
+			};
+		    this.changeFrameColor = function(x, y, width, height) {
+				var ctx = this.ctxCanvas;
+				var imageData = ctx.getImageData(x, y, width, height);
+				var data = imageData.data;
+				var usedColors = this.options.usedColors;
+				var smlrColorTlrnc = this.options.similarColorTolerance;
+
+				function isSameColors(color, to) {
+					return color.every(function(item, num) {
+						var min = item - smlrColorTlrnc/2;
+						var max = item + smlrColorTlrnc/2;
+
+						return to[num].inRange(min, max);
+					});
+				}
+				function isUsedColor(color) {
+					return usedColors.some(function(item, num) {
+						return isSameColors(color, item);
+					});
+				}
+				function getRandomColor(callback) {
+					randomColorGen(function(color) {
+						if (color) {
+							callback(color);
+							return;
+						}
+					});
+				}
+				function isNotBlacky(color) {
+					return color.every(function(item) {
+						return item > 60;
+					});
+				}
+				function randomColorGen(done) {
+					var shadows = [255, 255, 255];
+
+					shadows = shadows.map(function(i) {
+						return Math.abs(255-Math.round(Math.random()*255));
+					});
+					
+					if (isUsedColor(shadows) || isNotBlacky(shadows)) {
+						randomColorGen(done);
+						return;
+					}
+					usedColors.push(shadows);
+					
+					done(shadows);
+				}
+
+				getRandomColor(function(newColor) {
+					var color;
+					
+					function isBlack() {
+						return color.every(function(item) {
+							return item < 10;
+						});
+					}
+					
+				    for(var i = 0; i < data.length; i += 4) {
+						color = [data[i], data[i + 1], data[i + 2]];
+				    	
+				    	if( isBlack() ) {
+							newColor.forEach(function(item, num) {
+								data[i + num] = item;
+							})
+				    	}
+				    }
+
+					ctx.putImageData(imageData, x, y);
+				});
+			};
+		}
+		$.fn.coloring = function(image, params) {
+			this.each(function(item) {
+				var element = this;
+				(new Coloring).init(element, image, params);
+				return;
 			});
-			// bottom frame
-			changeFrameColor(ctx, element, 0, lowestFramePoint, width, bottomFrameHeight);
-		});
-		
-		tracking.track('#' + imageId, tracker);
-	}
-    
-    function changeFrameColor(ctx, imageObj, x, y, width, height) {
-        var imageData = ctx.getImageData(x, y, width, height);
-        var data = imageData.data;
+		};
 
-        function isSameColors(color, to) {
-        	return color.every(function(item, num) {
-        		return ( to[num] > (item - 60) )
-        			&& ( to[num] < (item + 60) );
-        	})
-        }
-        function isUsedColor(color) {
-        	return usedColors.some(function(item, num) {
-        		return isSameColors(color, item);
-        	});
-        }
-        function getRandomColor(callback) {
-        	randomColorGen(function(color) {
-        		if (color) {
-        			callback(color);
-        			return;
-        		}
-        	});
-        }
-        function isNotBlacky(color) {
-        	return color.every(function(item) {
-        		return item > 60;
-        	});
-        }
-		function randomColorGen(done) {
-			var shadows = [255, 255, 255];
-
-			shadows = shadows.map(function(i) {
-				return Math.abs(255-Math.round(Math.random()*255));
-			});
-			
-			if (isUsedColor(shadows) || isNotBlacky(shadows)) {
-				randomColorGen(done);
+		function handleFileSelect(evt, callback) {
+			var files = evt.target.files;
+			var f = files[0];
+			var reader;
+			if (!f.type.match('image.*')) {
 				return;
 			}
-			usedColors.push(shadows);
-			done(shadows);
+			
+			reader = new FileReader();
+			
+			reader.onload = (function(theFile) {
+				return function(e) {
+					var span = document.createElement('span');
+					var imageId = 'original';
+					var image;
+
+					span.innerHTML = [
+						'<img id="', imageId, '" src="', e.target.result,
+						'" title="', escape(theFile.name), 
+						'"/>'
+					].join('');
+					
+					document.getElementById('container').insertBefore(span, null);
+					image = document.getElementById(imageId);
+					
+					callback(image);
+				};
+			})(f);
+
+			reader.readAsDataURL(f);	
 		}
-        
-		getRandomColor(function(newColor) {
-			function isBlack() {
-				return color.every(function(item) {
-					return item < 10;
-				});
-			}
-	        for(var i = 0; i < data.length; i += 4) {
-	        	var color = [data[i], data[i + 1], data[i + 2]];
 
-	        	if( isBlack() ) {
-					newColor.forEach(function(item, num) {
-						data[i + num] = item;
-					})
-	        	}
-	        }
-
-        	ctx.putImageData(imageData, x, y);
+		$('#files').on('change', function(e) {
+			handleFileSelect(e, function(image) {
+				var params = {
+					usedColors: [ [255,255,255], [0,0,0] ],
+					similarColorTolerance: 60,
+					blackColorTolerance: 50,
+					width: window.innerWidth/2,
+					height: null,
+					frameWidthTolerance: 5,
+					frameHeightTolerance: null
+				};
+				
+				$('canvas').coloring(image, params);
+			});
 		});
-    }
+	})(jQuery, tracking);
 };
