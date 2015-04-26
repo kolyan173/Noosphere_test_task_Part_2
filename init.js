@@ -175,7 +175,7 @@ window.onload = function() {
 			var f = files[0];
 			var reader;
 			if (!f.type.match('image.*')) {
-				alert('File has to be an image');
+				alert('File has to be in image format');
 				return;
 			}
 			
