@@ -1,9 +1,13 @@
+.images {
+	margin-bottom: 20px;
+}
+.control {
+	position: fixed;
+}
 img {
 	width: 50%;
 	float: left;
 }
-
 #canvas {
-	/*float: left;*/
 	width: 50%;
 }

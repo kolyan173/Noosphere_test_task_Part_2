@@ -1,16 +1,16 @@
 window.onload = function() {
-	Number.prototype.inRange = function() {
-		var args = arguments;
-		var min = args[0];
-		var max = args[1];
-		if (arguments.length === 1) {
-			return this <= args[0];
-		}
-
-		return this >= min && this <= max;
-	};
-
 	(function($, tracking){
+		Number.prototype.inRange = function() {
+			var args = arguments;
+			var min = args[0];
+			var max = args[1];
+			if (arguments.length === 1) {
+				return this <= args[0];
+			}
+
+			return this >= min && this <= max;
+		};
+
 		function Coloring() {
 			this.options = {
 				usedColors: [],
@@ -70,18 +70,18 @@ window.onload = function() {
 						var width = rect.width + frameWidthTlrnc;
 						var height = rect.height + frameHeightTlrnc;
 						
-						this.changeFrameColor(x, y, width, height);
+						this.frameColoring(x, y, width, height);
 						
 						x += rect.width;
 						y += rect.height;
 					}.bind(this));
 					// bottom frame
-					this.changeFrameColor(0, bottomFrame_y, width, bottomFrameHeight);
+					this.frameColoring(0, bottomFrame_y, width, bottomFrameHeight);
 				}.bind(this));
 				
 				tracking.track('#' + imageId, tracker);
 			};
-		    this.changeFrameColor = function(x, y, width, height) {
+		    this.frameColoring = function(x, y, width, height) {
 				var ctx = this.ctxCanvas;
 				var imageData = ctx.getImageData(x, y, width, height);
 				var data = imageData.data;
@@ -153,6 +153,7 @@ window.onload = function() {
 				});
 			};
 		}
+
 		$.fn.coloring = function(image, params) {
 			this.each(function(item) {
 				var element = this;
@@ -173,18 +174,22 @@ window.onload = function() {
 			
 			reader.onload = (function(theFile) {
 				return function(e) {
-					var span = document.createElement('span');
+					var $span = $('<span></span>');
 					var imageId = 'original';
+					var $img = $('<img />');
 					var image;
-
-					span.innerHTML = [
-						'<img id="', imageId, '" src="', e.target.result,
-						'" title="', escape(theFile.name), 
-						'"/>'
-					].join('');
 					
-					document.getElementById('container').insertBefore(span, null);
-					image = document.getElementById(imageId);
+					$img.attr({
+						id: imageId,
+						src: e.target.result,
+						title: escape(theFile.name)
+					});
+					
+					$span.html($img);
+					
+					$('#container').html($span);
+					
+					image = $('#' + imageId)[0];
 					
 					callback(image);
 				};
@@ -198,7 +203,7 @@ window.onload = function() {
 				var params = {
 					usedColors: [ [255,255,255], [0,0,0] ],
 					similarColorTolerance: 60,
-					blackColorTolerance: 50,
+					blackColorTolerance: 200,
 					width: window.innerWidth/2,
 					height: null,
 					frameWidthTolerance: 5,
