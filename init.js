@@ -23,6 +23,10 @@ window.onload = function() {
 			};
 			this.init = function(canvas, image, params) {
 				this.options = $.extend(this.options, params);
+				if (!this.options.similarColorTolerance.inRange(100)) {
+					console.warn(['Warning: similarColorTolerance parameter',
+						'should to be less then 100'].join(' '));
+				}
 				this.image = image;
 				this.canvas = canvas;
 				this.ctxCanvas = this.canvas.getContext('2d');
@@ -164,9 +168,14 @@ window.onload = function() {
 
 		function handleFileSelect(evt, callback) {
 			var files = evt.target.files;
+			if (!files.length) {
+				alert('Choose a file');
+				return;
+			}
 			var f = files[0];
 			var reader;
 			if (!f.type.match('image.*')) {
+				alert('File has to be an image');
 				return;
 			}
 			
@@ -198,12 +207,12 @@ window.onload = function() {
 			reader.readAsDataURL(f);	
 		}
 
-		$('#files').on('change', function(e) {
+		$('#file').on('change', function(e) {
 			handleFileSelect(e, function(image) {
 				var params = {
 					usedColors: [ [255,255,255], [0,0,0] ],
-					similarColorTolerance: 60,
-					blackColorTolerance: 200,
+					similarColorTolerance: 100,
+					blackColorTolerance: 250,
 					width: window.innerWidth/2,
 					height: null,
 					frameWidthTolerance: 5,
