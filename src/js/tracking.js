@@ -2223,7 +2223,7 @@
         }
       }
     }
-
+    return results;
     return this.mergeRectangles_(results);
   };
 

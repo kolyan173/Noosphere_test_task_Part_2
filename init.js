@@ -79,10 +79,9 @@ window.onload = function() {
 						x += rect.width;
 						y += rect.height;
 					}.bind(this));
-					// bottom frame
-					this.frameColoring(0, bottomFrame_y, width, bottomFrameHeight);
+					console.log(event.data);
 				}.bind(this));
-				
+				tracker.setMinDimension(1);
 				tracking.track('#' + imageId, tracker);
 			};
 		    this.frameColoring = function(x, y, width, height) {
@@ -135,21 +134,39 @@ window.onload = function() {
 				}
 
 				getRandomColor(function(newColor) {
-					var color;
-					
-					function isBlack() {
-						return color.every(function(item) {
-							return item < 10;
-						});
+					function Color(r, g, b) {
+						this.value = [r, g, b];
+						
+						this.isBlack = function () {
+							return this.value.every(function(item) {
+								return item < 10;
+							});
+						};
+						this.isNotOfTinyFrame = function () {
+							return (width && height) > 20;
+						};
 					}
 					
+					function isAngle(index) {
+						var isBottom = index.inRange(data.length-28*width*4, data.length);
+						var isTop = index.inRange(25*width*4);
+						var isLeft = index%(width*4) < 80;
+						var isRight = index%(width*4) > width*4-85;
+
+			    		return isBottom && (isRight || isLeft)
+			    			|| isTop && (isRight || isLeft);
+					}
+
 				    for(var i = 0; i < data.length; i += 4) {
-						color = [data[i], data[i + 1], data[i + 2]];
+						var color = new Color(data[i], data[i + 1], data[i + 2]);
 				    	
-				    	if( isBlack() ) {
+				    	if( color.isBlack() ) {
+				    		if( isAngle(i) && color.isNotOfTinyFrame() ) {
+			    				continue;
+				    		}
 							newColor.forEach(function(item, num) {
 								data[i + num] = item;
-							})
+							});
 				    	}
 				    }
 
@@ -212,10 +229,10 @@ window.onload = function() {
 				var params = {
 					usedColors: [ [255,255,255], [0,0,0] ],
 					similarColorTolerance: 100,
-					blackColorTolerance: 250,
+					blackColorTolerance: 150,
 					width: window.innerWidth/2,
 					height: null,
-					frameWidthTolerance: 5,
+					frameWidthTolerance: 10,
 					frameHeightTolerance: null
 				};
 				
